@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.netlify.regal_tapioca_6c3340.twa",
+        "sha256_cert_fingerprints": ["E8:2D:6C:43:28:69:F3:A7:90:B3:11:D7:04:2F:F6:75:26:05:C6:09:EE:45:C1:A1:9C:2A:F9:7C:08:41:10:85"]
+      }
+    }]
