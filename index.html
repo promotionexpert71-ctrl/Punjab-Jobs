@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="pa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Punjab Jobs</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#3730A9">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<!-- Firebase (email login + profile database + resume/portfolio file storage) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
+<style>
+:root{
+  --indigo:#3730A9;
+  --indigo-dark:#2A2380;
+  --yellow:#FFC93C;
+  --bg:#F7F8FC;
+  --card:#FFFFFF;
+  --ink:#1A1A2E;
+  --muted:#8B8FA3;
+  --line:#ECEDF3;
+  --leaf:#2FAE60;
+  --danger:#D9486B;
+  --radius-lg:26px;
+  --radius-md:16px;
+  --radius-sm:10px;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+.shell{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;padding-bottom:84px;}
+
+.header{
+  background:linear-gradient(160deg, var(--indigo) 0%, var(--indigo-dark) 100%);
+  border-radius:0 0 32px 32px;padding:22px 20px 26px;color:#fff;position:relative;overflow:hidden;
+}
+.header::after{content:'';position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,0.06);}
+.header-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:1;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-mark{width:38px;height:38px;border-radius:11px;background:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:18px;}
+.brand-text{font-size:12px;color:rgba(255,255,255,.7);}
+.brand-title{font-size:16px;font-weight:700;}
+.bell{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;}
+.loc-label{font-size:11.5px;color:rgba(255,255,255,.65);margin:18px 0 3px;position:relative;z-index:1;}
+.loc-value{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:700;position:relative;z-index:1;}
+.loc-value .pin{color:var(--yellow);}
+.search-row{display:flex;gap:10px;margin-top:16px;position:relative;z-index:1;}
+.search-box{flex:1;background:#fff;border-radius:14px;display:flex;align-items:center;gap:8px;padding:12px 14px;color:var(--muted);}
+.search-box input{border:none;outline:none;flex:1;font-size:14px;color:var(--ink);background:transparent;}
+.filter-btn{width:46px;height:46px;border-radius:14px;background:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:none;cursor:pointer;}
+
+.section{padding:22px 20px 0;}
+.section-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
+.section-title{font-size:17px;font-weight:700;}
+.section-link{font-size:12.5px;color:var(--indigo);font-weight:600;cursor:pointer;}
+
+.dist-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
+.dist-scroll.expanded{flex-wrap:wrap;overflow-x:visible;}
+.dist-scroll::-webkit-scrollbar{display:none;}
+.dist-card{flex:0 0 auto;min-width:104px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);padding:14px 12px;cursor:pointer;transition:.15s;}
+.dist-card:hover{border-color:var(--indigo);}
+.dist-card .dot{width:30px;height:30px;border-radius:9px;background:#EDEBFB;color:var(--indigo);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;margin-bottom:10px;}
+.dist-card .n{font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.3;}
+.dist-card .c{font-size:11px;color:var(--muted);margin-top:2px;}
+.dist-card.all-card{background:var(--indigo);border-color:var(--indigo);}
+.dist-card.all-card .dot{background:var(--yellow);color:var(--indigo-dark);}
+.dist-card.all-card .n,.dist-card.all-card .c{color:#fff;}
+
+.filter-label{font-size:11.5px;color:var(--muted);margin:14px 0 8px;font-weight:600;}
+.pill-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
+.pill-row::-webkit-scrollbar{display:none;}
+.pill{flex:0 0 auto;padding:8px 16px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap;}
+.pill.active{background:var(--indigo);border-color:var(--indigo);color:#fff;font-weight:600;}
+.pill.cat.active{background:var(--yellow);border-color:var(--yellow);color:var(--indigo-dark);}
+
+.job-list{display:flex;flex-direction:column;gap:12px;margin-top:14px;}
+.job-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);padding:16px;cursor:pointer;transition:.15s;}
+.job-card:hover{border-color:var(--indigo);}
+.job-card.closed{opacity:.62;}
+.job-card.closed .job-foot .stat{color:var(--danger);font-weight:600;}
+.job-top{display:flex;align-items:flex-start;gap:12px;}
+.avatar{width:44px;height:44px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;color:#fff;}
+.job-title{font-size:15px;font-weight:700;color:var(--ink);margin:0 0 2px;}
+.job-org{font-size:12.5px;color:var(--muted);}
+.bookmark{margin-left:auto;color:var(--muted);font-size:16px;}
+.job-loc{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);margin:10px 0;}
+.job-loc .pin{color:var(--indigo);}
+.tag-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;}
+.tag{background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:11.5px;padding:5px 10px;border-radius:8px;}
+.tag.cat{background:#FFF6DE;border-color:#FFE9AE;color:#8A6A00;font-weight:600;}
+.job-foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:10px;}
+.job-foot .stat{font-size:11.5px;color:var(--muted);}
+.job-foot .highlight{color:var(--indigo);font-weight:700;font-size:13px;}
+.empty{text-align:center;color:var(--muted);padding:50px 10px;font-size:13.5px;}
+
+.detail-card{background:var(--card);border-radius:var(--radius-lg);margin:-16px 16px 0;padding:22px 18px;position:relative;z-index:2;box-shadow:0 10px 30px rgba(42,35,128,.08);}
+.detail-title{font-size:19px;font-weight:800;text-align:center;margin:0 0 4px;}
+.detail-org{text-align:center;color:var(--muted);font-size:13px;margin-bottom:6px;}
+.detail-loc{display:flex;justify-content:center;align-items:center;gap:5px;color:var(--indigo);font-size:12.5px;font-weight:600;margin-bottom:18px;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+.stat-box{background:var(--bg);border-radius:12px;padding:12px 14px;}
+.stat-box .lbl{font-size:11px;color:var(--muted);margin-bottom:3px;}
+.stat-box .val{font-size:13.5px;font-weight:700;color:var(--indigo);}
+.detail-section-title{font-size:14px;font-weight:700;margin:16px 0 8px;}
+.detail-desc{font-size:13.5px;color:#4A4A5E;line-height:1.6;}
+
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:10px 8px 14px;}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:10.5px;cursor:pointer;}
+.nav-item.active{color:var(--indigo);font-weight:700;}
+.nav-item .ic{font-size:18px;}
+
+.admin-label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin:0 0 10px;}
+.upload-box{border:2px dashed var(--indigo);border-radius:var(--radius-md);padding:20px;text-align:center;background:var(--card);}
+.upload-box.dragover{background:#EDEBFB;}
+.upload-box p{margin:0 0 12px;font-size:13px;color:var(--ink);}
+.btn{display:inline-block;background:var(--indigo);color:#fff;border:none;padding:11px 22px;border-radius:999px;font-weight:700;font-size:13.5px;cursor:pointer;width:100%;}
+.btn.yellow{background:var(--yellow);color:var(--indigo-dark);width:auto;}
+.btn.outline{background:transparent;color:var(--indigo);border:1.5px solid var(--indigo);}
+.btn.danger{background:var(--danger);}
+input[type=file]{display:none;}
+.status{font-size:12px;color:var(--indigo);margin-top:8px;min-height:16px;text-align:center;}
+.status.error{color:var(--danger);}
+.feed-input{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line);font-size:13px;margin-bottom:10px;background:var(--bg);color:var(--ink);}
+
+/* Profile / Auth */
+.auth-card{background:var(--card);border-radius:var(--radius-lg);margin:-16px 16px 0;padding:26px 20px;position:relative;z-index:2;box-shadow:0 10px 30px rgba(42,35,128,.08);}
+.auth-title{font-size:19px;font-weight:800;text-align:center;margin:0 0 4px;}
+.auth-sub{text-align:center;color:var(--muted);font-size:12.5px;margin-bottom:20px;}
+.field-label{font-size:12px;font-weight:600;color:var(--ink);margin:12px 0 6px;}
+.field-input,.field-textarea{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);font-size:13.5px;background:var(--bg);color:var(--ink);}
+.field-textarea{resize:vertical;min-height:70px;font-family:inherit;}
+.auth-toggle{text-align:center;font-size:12.5px;color:var(--muted);margin-top:14px;}
+.auth-toggle span{color:var(--indigo);font-weight:700;cursor:pointer;}
+.profile-avatar{width:64px;height:64px;border-radius:20px;background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;margin:0 auto 14px;}
+.resume-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:12px;padding:12px 14px;margin-top:8px;}
+.resume-row .fname{font-size:12.5px;color:var(--ink);}
+.link-list{display:flex;flex-direction:column;gap:6px;margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- HOME / DISTRICTS SCREEN -->
+  <div id="homeScreen">
+    <div class="header">
+      <div class="header-top">
+        <div class="brand">
+          <div class="brand-mark">💼</div>
+          <div><div class="brand-title">Punjab Jobs</div><div class="brand-text">ਹਰ ਜ਼ਿਲ੍ਹੇ ਦੀਆਂ ਨੌਕਰੀਆਂ</div></div>
+        </div>
+        <div class="bell">🔔</div>
+      </div>
+      <div class="loc-label">Location</div>
+      <div class="loc-value"><span class="pin">📍</span> Punjab, India</div>
+      <div class="search-row">
+        <div class="search-box">🔍<input id="searchInput" placeholder="Job title, company dhoondo..."></div>
+        <button class="filter-btn">⚙️</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">Districts</div>
+        <div class="section-link" id="allJobsLink">See all</div>
+      </div>
+      <div class="dist-scroll" id="districtScroll"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title" id="listHeading">Recent Jobs</div></div>
+      <div class="filter-label">District</div>
+      <div class="pill-row" id="pillRow"></div>
+      <div class="filter-label">Category</div>
+      <div class="pill-row" id="catRow"></div>
+      <div class="job-list" id="jobList"></div>
+    </div>
+  </div>
+
+  <!-- JOB DETAIL SCREEN -->
+  <div id="detailScreen" style="display:none;">
+    <div class="header">
+      <div class="header-top">
+        <div class="nav-item" style="color:#fff;" id="backBtn"><span class="ic">←</span></div>
+        <div class="bell">🔖</div>
+      </div>
+    </div>
+    <div class="detail-card">
+      <h2 class="detail-title" id="dTitle"></h2>
+      <div class="detail-org" id="dOrg"></div>
+      <div class="detail-loc"><span class="pin">📍</span><span id="dLoc"></span></div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="lbl">Last Date</div><div class="val" id="dDate">—</div></div>
+        <div class="stat-box"><div class="lbl">Vacancies</div><div class="val" id="dVac">—</div></div>
+      </div>
+      <div class="detail-section-title">Job Description</div>
+      <div class="detail-desc" id="dDesc"></div>
+    </div>
+    <div style="padding:20px;"></div>
+  </div>
+
+  <!-- PROFILE / LOGIN SCREEN -->
+  <div id="profileScreen" style="display:none;">
+    <div class="header">
+      <div class="header-top">
+        <div class="brand-title">My Profile</div>
+        <div class="bell" id="profileBackBtn">✕</div>
+      </div>
+    </div>
+
+    <!-- Logged out: login/signup form -->
+    <div id="authBox" class="section" style="display:none;">
+      <div class="auth-card">
+        <div class="auth-title" id="authTitle">Login</div>
+        <div class="auth-sub">Email se login karke apni profile, resume aur portfolio banao</div>
+        <div class="field-label">Email</div>
+        <input class="field-input" id="authEmail" type="email" placeholder="aapka@email.com">
+        <div class="field-label">Password</div>
+        <input class="field-input" id="authPassword" type="password" placeholder="kam se kam 6 characters">
+        <div style="height:16px;"></div>
+        <button class="btn" id="authSubmitBtn">Login</button>
+        <div class="status" id="authStatus"></div>
+        <div class="auth-toggle" id="authToggle">Account nahi hai? <span>Sign up karo</span></div>
+      </div>
+    </div>
+
+    <!-- Logged in: profile editor -->
+    <div id="profileBox" class="section" style="display:none;">
+      <div class="auth-card">
+        <div class="profile-avatar" id="pAvatar">U</div>
+        <div class="field-label">Full Name</div>
+        <input class="field-input" id="pName" placeholder="Apna naam likho">
+        <div class="field-label">Category / Skill</div>
+        <select class="field-input" id="pCategory"></select>
+        <div class="field-label">About / Bio</div>
+        <textarea class="field-textarea" id="pBio" placeholder="Apne bare mein 2-3 lines likho..."></textarea>
+        <div class="field-label">Portfolio Links (ek line mein ek link)</div>
+        <textarea class="field-textarea" id="pPortfolio" placeholder="https://instagram.com/apna-kaam&#10;https://behance.net/apna-kaam"></textarea>
+
+        <div class="field-label">Resume (PDF)</div>
+        <div class="upload-box">
+          <label class="btn yellow" for="resumeInput">Resume Upload Karo</label>
+          <input type="file" id="resumeInput" accept="application/pdf">
+          <div id="resumeRowWrap"></div>
+        </div>
+
+        <div style="height:16px;"></div>
+        <button class="btn" id="saveProfileBtn">Profile Save Karo</button>
+        <div class="status" id="profileStatus"></div>
+        <div style="height:10px;"></div>
+        <button class="btn danger" id="logoutBtn">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN SCREEN -->
+  <div id="adminScreen" style="display:none;">
+    <div class="header">
+      <div class="header-top"><div class="brand-title">Admin Panel</div><div class="bell" id="adminBackBtn">✕</div></div>
+    </div>
+    <div class="section">
+      <div class="admin-label">Add jobs from PDF</div>
+      <div class="upload-box" id="uploadBox">
+        <p>Job notification ਦੀ PDF ਪਾਓ — AI ਆਪਣੇ-ਆਪ ਜੌਬ ਕੱਢ ਦੇਵੇਗਾ</p>
+        <label class="btn yellow" for="pdfInput">PDF ਚੁਣੋ</label>
+        <input type="file" id="pdfInput" accept="application/pdf">
+        <div class="status" id="status"></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="admin-label">Backend auto-sync</div>
+      <div class="upload-box">
+        <input type="text" class="feed-input" id="feedUrl" placeholder="https://script.google.com/macros/s/.../exec">
+        <button class="btn" id="saveFeedBtn">Save &amp; Sync</button>
+        <div class="status" id="feedStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="bottom-nav" id="bottomNav">
+    <div class="nav-item active" id="navHome"><span class="ic">🏠</span>Home</div>
+    <div class="nav-item" id="navSearch"><span class="ic">🔍</span>Search</div>
+    <div class="nav-item" id="navProfile"><span class="ic">👤</span>Profile</div>
+    <div class="nav-item" id="navAdmin" style="display:none;"><span class="ic">⚙️</span>Admin</div>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   FIREBASE SETUP — REPLACE with your own project's config.
+   Steps to get this: console.firebase.google.com ->
+   Create project -> Project settings -> "Add app" (Web) ->
+   copy the firebaseConfig object shown there and paste below.
+   Also enable: Authentication > Email/Password,
+   Firestore Database (start in production mode),
+   Storage.
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDsz299wwQlcUikGKeFeC8HwA8k8R4TfaI",
+  authDomain: "punjab-jobs-56935.firebaseapp.com",
+  projectId: "punjab-jobs-56935",
+  storageBucket: "punjab-jobs-56935.firebasestorage.app",
+  messagingSenderId: "84904677605",
+  appId: "1:84904677605:web:47b1fb9980db295036040c"
+};
+let firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  firebaseReady = true;
+}catch(e){ console.warn('Firebase not configured yet:', e); }
+const auth = firebaseReady ? firebase.auth() : null;
+const db = firebaseReady ? firebase.firestore() : null;
+const storage = firebaseReady ? firebase.storage() : null;
+
+const DISTRICTS = [
+  "Amritsar","Barnala","Bathinda","Faridkot","Fatehgarh Sahib","Fazilka",
+  "Ferozepur","Gurdaspur","Hoshiarpur","Jalandhar","Kapurthala","Ludhiana",
+  "Malerkotla","Mansa","Moga","Sri Muktsar Sahib","Pathankot","Patiala",
+  "Rupnagar","SAS Nagar (Mohali)","Sangrur","SBS Nagar (Nawanshahr)","Tarn Taran"
+];
+const CATEGORIES = [
+  "Video Editor","Graphic Designer","Web Developer","Security Guard","Driver",
+  "Delivery Boy","Data Entry Operator","Teacher","Sales Executive","Cook / Chef",
+  "Electrician","Plumber","Nurse","Accountant","Customer Support","Recruitment Agency","Other"
+];
+const AVATAR_COLORS = ["#3730A9","#D9486B","#2FAE60","#E8A33D","#3E7CB1","#8B5CF6"];
+const isAdmin = new URLSearchParams(location.search).get('admin') === '1';
+
+let jobs = [];
+let activeDistrict = "All";
+let activeCategory = "All";
+let searchQuery = "";
+let districtsExpanded = false;
+
+const SEED_JOBS = [
+  { id:'seed-1', title:'Counsellor & Data Manager', district:'Bathinda', category:'Other',
+    organization:'AIIMS Bathinda', last_date:'05 Aug 2026 (Closed)', vacancies:'',
+    description:'M.A. / M.Sc. / M.Phil. / Ph.D. required. Applications closed — deadline was 5 August 2026.' },
+  { id:'seed-2', title:'PGT Biology, TGT (AI / Data Science / Yoga), PRT, Lab Attendant, Peon, Watchman', district:'Bathinda', category:'Teacher',
+    organization:'Army Public School, Bathinda', last_date:'10 Aug 2026 (Closed)', vacancies:'Multiple',
+    description:'Teaching and support-staff posts across several roles. Application window closed on 10 August 2026.' },
+  { id:'seed-3', title:'Research Assistant', district:'Bathinda', category:'Other',
+    organization:'Central University of Punjab', last_date:'25 Jul 2026 (Closed)', vacancies:'',
+    description:'Postgraduate qualification required. Deadline was 25 July 2026 — window closed.' },
+  { id:'seed-4', title:'Recruitment Consulting Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'INDIA JOB KART', last_date:'', vacancies:'',
+    description:'Local placement agency at Birla Mill Road, Bathinda. Contact: 76968 74147. Verify vacancy and never pay fees before confirming with the employer.' },
+  { id:'seed-5', title:'Recruitment Consulting Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'Wonder Group', last_date:'', vacancies:'',
+    description:'Local placement agency at Mehna Chowk Road, Bathinda. Contact: 94174 86213.' },
+  { id:'seed-6', title:'Recruitment Consulting Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'R. K Jobs Placement Bathinda', last_date:'', vacancies:'',
+    description:'Local placement agency at Amrik Singh Road, Bathinda. Contact: 85287 26321.' },
+  { id:'seed-7', title:'Recruitment Consulting Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'Mittal Job Consultancy', last_date:'', vacancies:'',
+    description:'Local placement agency at Arya Samaj Chowk, Bathinda. Contact: 88474 93434.' },
+  { id:'seed-8', title:'Recruitment Consulting Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'Goodwill Job Placement (Regd.)', last_date:'', vacancies:'',
+    description:'Local placement agency at Street No. 4, Bathinda. Contact: 90565 60444.' },
+  { id:'seed-9', title:'Recruitment Consulting Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'Arham The First Notch', last_date:'', vacancies:'',
+    description:'Local placement agency at Bibi Wala Road, Bathinda. Contact: 70090 87131.' },
+  { id:'seed-10', title:'Recruitment Consulting Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'Career Hub Consultancy', last_date:'', vacancies:'',
+    description:'Local placement agency at Ajit Road, Bathinda. Contact: 82644 76072.' },
+  { id:'seed-11', title:'Employment Agency Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'SMES Manpower & Educational Services', last_date:'', vacancies:'',
+    description:'Employment agency at Lal Singh Nagar, Bathinda.' },
+  { id:'seed-12', title:'Recruitment & Career Consulting', district:'Bathinda', category:'Recruitment Agency',
+    organization:'Bsafe Recruiters & Career Consultants', last_date:'', vacancies:'',
+    description:'Local placement agency at Ajit Road, Model Town Phase-3, Bathinda. Contact: 98767 90618.' },
+  { id:'seed-13', title:'Recruitment Consulting Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'Jass Job Consultancy Bathinda', last_date:'', vacancies:'',
+    description:'Local placement agency at 60 Feet Road, Guruteg Bahadar Nagar, Bathinda. Contact: 76968 12761.' },
+  { id:'seed-14', title:'Employment Office Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'RK Group Job Placement', last_date:'', vacancies:'',
+    description:'Employment office at Bibi Wala Road, Bathinda.' },
+  { id:'seed-15', title:'Employment Office Services', district:'Bathinda', category:'Recruitment Agency',
+    organization:'Happy Job Agency', last_date:'', vacancies:'',
+    description:'Employment office at Jogi Nagar, Partap Nagar, Bathinda.' }
+];
+
+function colorFor(str){
+  let h = 0;
+  for(let i=0;i<(str||'').length;i++) h = str.charCodeAt(i) + ((h<<5)-h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+function escapeHtml(str){ const d=document.createElement('div'); d.textContent = str||''; return d.innerHTML; }
+function countFor(d){
+  if(d==='All') return jobs.length;
+  return jobs.filter(j=>(j.district||'').toLowerCase().includes(d.toLowerCase())).length;
+}
+function filteredJobs(){
+  let list = activeDistrict==='All' ? jobs : jobs.filter(j=>(j.district||'').toLowerCase().includes(activeDistrict.toLowerCase()));
+  if(activeCategory!=='All') list = list.filter(j=>(j.category||'')===activeCategory);
+  if(searchQuery.trim()){
+    const q = searchQuery.toLowerCase();
+    list = list.filter(j => (j.title||'').toLowerCase().includes(q) || (j.organization||'').toLowerCase().includes(q));
+  }
+  return list;
+}
+
+function renderDistrictScroll(){
+  const el = document.getElementById('districtScroll');
+  el.className = 'dist-scroll' + (districtsExpanded ? ' expanded' : '');
+  el.innerHTML = '';
+  const allCard = document.createElement('div');
+  allCard.className = 'dist-card all-card';
+  allCard.innerHTML = `<div class="dot">★</div><div class="n">All Districts</div><div class="c">${countFor('All')} jobs</div>`;
+  allCard.onclick = ()=>{ activeDistrict='All'; renderAll(); };
+  el.appendChild(allCard);
+
+  const listToShow = districtsExpanded ? DISTRICTS : [...DISTRICTS].sort((a,b)=>countFor(b)-countFor(a)).slice(0,10);
+  listToShow.forEach(d=>{
+    const card = document.createElement('div');
+    card.className = 'dist-card';
+    card.innerHTML = `<div class="dot">${d[0]}</div><div class="n">${d}</div><div class="c">${countFor(d)} jobs</div>`;
+    card.onclick = ()=>{ activeDistrict=d; renderAll(); };
+    el.appendChild(card);
+  });
+  document.getElementById('allJobsLink').textContent = districtsExpanded ? 'Show less' : 'See all';
+}
+
+function renderPillRow(){
+  const el = document.getElementById('pillRow');
+  el.innerHTML = '';
+  ["All", ...DISTRICTS].forEach(d=>{
+    const pill = document.createElement('div');
+    pill.className = 'pill' + (d===activeDistrict ? ' active':'');
+    pill.textContent = d;
+    pill.onclick = ()=>{ activeDistrict=d; renderAll(); };
+    el.appendChild(pill);
+  });
+}
+
+function renderCatRow(){
+  const el = document.getElementById('catRow');
+  el.innerHTML = '';
+  ["All", ...CATEGORIES].forEach(c=>{
+    const pill = document.createElement('div');
+    pill.className = 'pill cat' + (c===activeCategory ? ' active':'');
+    pill.textContent = c;
+    pill.onclick = ()=>{ activeCategory=c; renderAll(); };
+    el.appendChild(pill);
+  });
+}
+
+function renderJobList(){
+  const list = document.getElementById('jobList');
+  const data = filteredJobs();
+  document.getElementById('listHeading').textContent = activeDistrict==='All' ? 'Recent Jobs' : activeDistrict + ' Jobs';
+  if(data.length===0){
+    list.innerHTML = `<div class="empty">${jobs.length===0 ? 'ਹਾਲੇ ਕੋਈ ਜੌਬ ਨਹੀਂ ਹੈ' : 'ਇਸ ਫਿਲਟਰ ਵਿੱਚ ਕੋਈ ਜੌਬ ਨਹੀਂ ਮਿਲੀ'}</div>`;
+    return;
+  }
+  list.innerHTML = data.map((j)=>{
+    const c = colorFor(j.organization||j.title||'X');
+    const isClosed = /closed/i.test(j.last_date||'');
+    return `
+    <div class="job-card${isClosed ? ' closed' : ''}" data-idx="${jobs.indexOf(j)}">
+      <div class="job-top">
+        <div class="avatar" style="background:${c};">${(j.organization||j.title||'J')[0].toUpperCase()}</div>
+        <div>
+          <h3 class="job-title">${escapeHtml(j.title||'Untitled Job')}</h3>
+          <div class="job-org">${escapeHtml(j.organization||'—')}</div>
+        </div>
+        <div class="bookmark">🔖</div>
+      </div>
+      <div class="job-loc"><span class="pin">📍</span>${escapeHtml(j.district||'Punjab')}</div>
+      <div class="tag-row">
+        ${j.category ? `<span class="tag cat">${escapeHtml(j.category)}</span>` : ''}
+        ${j.vacancies ? `<span class="tag">${escapeHtml(String(j.vacancies))} posts</span>` : ''}
+      </div>
+      <div class="job-foot">
+        <span class="stat">${j.last_date ? (isClosed ? '🔴 '+escapeHtml(j.last_date) : 'Last date: '+escapeHtml(j.last_date)) : 'Open'}</span>
+        <span class="highlight">View →</span>
+      </div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.job-card').forEach(card=>{
+    card.addEventListener('click', ()=> openDetail(jobs[+card.dataset.idx]));
+  });
+}
+
+function renderAll(){ renderDistrictScroll(); renderPillRow(); renderCatRow(); renderJobList(); }
+
+function openDetail(job){
+  document.getElementById('homeScreen').style.display='none';
+  document.getElementById('detailScreen').style.display='block';
+  document.getElementById('dTitle').textContent = job.title||'Untitled Job';
+  document.getElementById('dOrg').textContent = job.organization||'—';
+  document.getElementById('dLoc').textContent = job.district||'Punjab';
+  document.getElementById('dDate').textContent = job.last_date || '—';
+  document.getElementById('dVac').textContent = job.vacancies ? String(job.vacancies) : '—';
+  document.getElementById('dDesc').textContent = job.description || 'No description available.';
+}
+document.getElementById('backBtn').addEventListener('click', ()=>{
+  document.getElementById('detailScreen').style.display='none';
+  document.getElementById('homeScreen').style.display='block';
+});
+document.getElementById('allJobsLink').addEventListener('click', ()=>{
+  districtsExpanded = !districtsExpanded;
+  renderDistrictScroll();
+});
+document.getElementById('searchInput').addEventListener('input', (e)=>{ searchQuery = e.target.value; renderJobList(); });
+
+/* bottom nav */
+function showScreen(id){
+  ['homeScreen','detailScreen','profileScreen','adminScreen'].forEach(s=>{
+    document.getElementById(s).style.display = (s===id) ? 'block' : 'none';
+  });
+}
+function setActiveNav(id){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+document.getElementById('navHome').addEventListener('click', ()=>{ showScreen('homeScreen'); setActiveNav('navHome'); });
+document.getElementById('navSearch').addEventListener('click', ()=>{ showScreen('homeScreen'); setActiveNav('navSearch'); document.getElementById('searchInput').focus(); });
+document.getElementById('navProfile').addEventListener('click', ()=>{ showScreen('profileScreen'); setActiveNav('navProfile'); });
+document.getElementById('profileBackBtn').addEventListener('click', ()=> document.getElementById('navHome').click());
+
+async function loadSavedJobs(){
+  try{
+    const res = await window.storage.get('punjab-jobs-list');
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      jobs = (parsed && parsed.length) ? parsed : SEED_JOBS;
+    } else {
+      jobs = SEED_JOBS;
+    }
+  }catch(e){
+    jobs = SEED_JOBS;
+  }
+  renderAll();
+}
+async function saveJobs(){ try{ await window.storage.set('punjab-jobs-list', JSON.stringify(jobs)); }catch(e){} }
+
+/* =========================================================
+   PROFILE / AUTH (Firebase)
+   ========================================================= */
+let authMode = 'login'; // or 'signup'
+const catSelect = document.getElementById('pCategory');
+CATEGORIES.forEach(c=>{
+  const opt = document.createElement('option'); opt.value=c; opt.textContent=c; catSelect.appendChild(opt);
+});
+
+function requireFirebaseOrWarn(){
+  if(!firebaseReady){
+    document.getElementById('authStatus').textContent = '⚠️ Firebase config abhi set nahi hai — index.html ke top wale firebaseConfig mein apna project daalo';
+    document.getElementById('authStatus').classList.add('error');
+    return false;
+  }
+  return true;
+}
+
+document.getElementById('authToggle').addEventListener('click', ()=>{
+  authMode = authMode==='login' ? 'signup' : 'login';
+  document.getElementById('authTitle').textContent = authMode==='login' ? 'Login' : 'Sign Up';
+  document.getElementById('authSubmitBtn').textContent = authMode==='login' ? 'Login' : 'Sign Up';
+  document.getElementById('authToggle').innerHTML = authMode==='login'
+    ? 'Account nahi hai? <span>Sign up karo</span>'
+    : 'Pehle se account hai? <span>Login karo</span>';
+});
+
+document.getElementById('authSubmitBtn').addEventListener('click', async ()=>{
+  if(!requireFirebaseOrWarn()) return;
+  const email = document.getElementById('authEmail').value.trim();
+  const pass = document.getElementById('authPassword').value;
+  const statusEl = document.getElementById('authStatus');
+  statusEl.classList.remove('error');
+  if(!email || pass.length < 6){
+    statusEl.textContent = 'Sahi email aur 6+ character password daalo';
+    statusEl.classList.add('error');
+    return;
+  }
+  try{
+    statusEl.textContent = 'Ruko...';
+    if(authMode==='login'){
+      await auth.signInWithEmailAndPassword(email, pass);
+    }else{
+      await auth.createUserWithEmailAndPassword(email, pass);
+    }
+    statusEl.textContent = '';
+  }catch(err){
+    statusEl.textContent = '❌ ' + (err.message || 'Kuch galat ho gaya');
+    statusEl.classList.add('error');
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', ()=> auth && auth.signOut());
+
+let currentUser = null;
+let currentResumeUrl = '';
+
+async function loadProfile(uid){
+  try{
+    const doc = await db.collection('profiles').doc(uid).get();
+    if(doc.exists){
+      const p = doc.data();
+      document.getElementById('pName').value = p.name || '';
+      document.getElementById('pCategory').value = p.category || CATEGORIES[0];
+      document.getElementById('pBio').value = p.bio || '';
+      document.getElementById('pPortfolio').value = (p.portfolio||[]).join('\n');
+      currentResumeUrl = p.resumeUrl || '';
+      renderResumeRow();
+    }
+  }catch(e){ console.error('loadProfile failed', e); }
+}
+
+function renderResumeRow(){
+  const wrap = document.getElementById('resumeRowWrap');
+  wrap.innerHTML = currentResumeUrl
+    ? `<div class="resume-row"><span class="fname">📄 Resume uploaded</span><a href="${currentResumeUrl}" target="_blank" style="color:var(--indigo);font-size:12.5px;font-weight:600;">View</a></div>`
+    : '';
+}
+
+document.getElementById('resumeInput').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file || !currentUser) return;
+  const statusEl = document.getElementById('profileStatus');
+  try{
+    statusEl.textContent = 'Resume upload ho raha hai...'; statusEl.classList.remove('error');
+    const ref = storage.ref(`resumes/${currentUser.uid}/resume.pdf`);
+    await ref.put(file);
+    currentResumeUrl = await ref.getDownloadURL();
+    renderResumeRow();
+    statusEl.textContent = '✅ Resume upload ho gaya — ab "Profile Save Karo" dabao';
+  }catch(err){
+    statusEl.textContent = '❌ Resume upload nahi hua: ' + err.message;
+    statusEl.classList.add('error');
+  }
+});
+
+document.getElementById('saveProfileBtn').addEventListener('click', async ()=>{
+  if(!currentUser) return;
+  const statusEl = document.getElementById('profileStatus');
+  statusEl.classList.remove('error');
+  try{
+    statusEl.textContent = 'Save ho raha hai...';
+    const portfolio = document.getElementById('pPortfolio').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    await db.collection('profiles').doc(currentUser.uid).set({
+      name: document.getElementById('pName').value.trim(),
+      category: document.getElementById('pCategory').value,
+      bio: document.getElementById('pBio').value.trim(),
+      portfolio,
+      resumeUrl: currentResumeUrl,
+      email: currentUser.email,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    statusEl.textContent = '✅ Profile save ho gayi';
+    setTimeout(()=>statusEl.textContent='', 3000);
+  }catch(err){
+    statusEl.textContent = '❌ Save nahi hua: ' + err.message;
+    statusEl.classList.add('error');
+  }
+});
+
+if(firebaseReady){
+  auth.onAuthStateChanged(user=>{
+    currentUser = user;
+    if(user){
+      document.getElementById('authBox').style.display='none';
+      document.getElementById('profileBox').style.display='block';
+      document.getElementById('pAvatar').textContent = (user.email||'U')[0].toUpperCase();
+      loadProfile(user.uid);
+    }else{
+      document.getElementById('authBox').style.display='block';
+      document.getElementById('profileBox').style.display='none';
+    }
+  });
+} else {
+  document.getElementById('authBox').style.display='block';
+}
+
+/* ---------------- Admin-only logic ---------------- */
+if(isAdmin){
+  document.getElementById('navAdmin').style.display = 'flex';
+  document.getElementById('navAdmin').addEventListener('click', ()=>{ showScreen('adminScreen'); setActiveNav('navAdmin'); });
+  document.getElementById('adminBackBtn').addEventListener('click', ()=> document.getElementById('navHome').click());
+
+  async function extractPdfText(file){
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+    let text = '';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(it=>it.str).join(' ') + '\n';
+    }
+    return text.slice(0, 15000);
+  }
+
+  async function askClaudeToStructure(pdfText){
+    const systemPrompt = `You extract job listings from Punjab (India) government/private job notification text.
+Return ONLY a JSON array (no markdown fences, no preamble) of job objects with this exact shape:
+[{"title":"","district":"one of: ${DISTRICTS.join(', ')}, or 'All Punjab' if not district-specific","category":"one of: ${CATEGORIES.join(', ')}, pick closest match","organization":"","last_date":"","vacancies":"","description":"one or two sentence summary"}]
+Only return the JSON array.`;
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: `Extract jobs from this text:\n\n${pdfText}` }]
+      })
+    });
+    const data = await response.json();
+    const textBlock = (data.content || []).find(b=>b.type==='text');
+    if(!textBlock) throw new Error('No response from AI');
+    const clean = textBlock.text.replace(/```json|```/g,'').trim();
+    return JSON.parse(clean);
+  }
+
+  document.getElementById('pdfInput').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const statusEl = document.getElementById('status');
+    try{
+      statusEl.textContent = 'PDF ਪੜ੍ਹੀ ਜਾ ਰਹੀ ਹੈ...';
+      const text = await extractPdfText(file);
+      statusEl.textContent = 'AI ਜੌਬ ਦੀ ਜਾਣਕਾਰੀ ਕੱਢ ਰਿਹਾ ਹੈ...';
+      const newJobs = await askClaudeToStructure(text);
+      jobs = [...newJobs.map(j=>({...j, id: Date.now()+Math.random()})), ...jobs];
+      await saveJobs();
+      renderAll();
+      statusEl.textContent = `✅ ${newJobs.length} ਜੌਬ(ਾਂ) ਸ਼ਾਮਲ ਕੀਤੀਆਂ ਗਈਆਂ`;
+      setTimeout(()=>statusEl.textContent='', 4000);
+    }catch(err){
+      console.error(err);
+      statusEl.textContent = '❌ ਕੁਝ ਗਲਤ ਹੋ ਗਿਆ, ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ';
+    }
+    e.target.value = '';
+  });
+
+  const uploadBox = document.getElementById('uploadBox');
+  ['dragover','dragenter'].forEach(ev=>uploadBox.addEventListener(ev, e=>{e.preventDefault(); uploadBox.classList.add('dragover');}));
+  ['dragleave','drop'].forEach(ev=>uploadBox.addEventListener(ev, e=>{e.preventDefault(); uploadBox.classList.remove('dragover');}));
+  uploadBox.addEventListener('drop', e=>{
+    const file = e.dataTransfer.files[0];
+    if(file && file.type==='application/pdf'){
+      document.getElementById('pdfInput').files = e.dataTransfer.files;
+      document.getElementById('pdfInput').dispatchEvent(new Event('change'));
+    }
+  });
+
+  function normalizeFeedJob(j){
+    return { id: j.id || (Date.now()+Math.random()), title: j.title, district: j.district, category: j.category,
+      organization: j.organization, last_date: j.last_date, vacancies: j.vacancies, description: j.description };
+  }
+  window.syncFromFeed = async function(url, silent){
+    const feedStatus = document.getElementById('feedStatus');
+    try{
+      if(!silent) feedStatus.textContent = 'Sync ho raha hai...';
+      const res = await fetch(url);
+      const feedJobs = await res.json();
+      const feedIds = new Set(feedJobs.map(j=>j.id));
+      const localOnly = jobs.filter(j=>!feedIds.has(j.id) && !j._fromFeed);
+      jobs = [...feedJobs.map(j=>({...normalizeFeedJob(j), _fromFeed:true})), ...localOnly];
+      await saveJobs();
+      renderAll();
+      if(!silent) feedStatus.textContent = `✅ ${feedJobs.length} jobs sync ho gaye`;
+    }catch(err){
+      console.error(err);
+      if(!silent) feedStatus.textContent = '❌ Feed URL se connect nahi ho paya';
+    }
+  };
+  document.getElementById('saveFeedBtn').addEventListener('click', async ()=>{
+    const url = document.getElementById('feedUrl').value.trim();
+    if(!url) return;
+    await window.storage.set('punjab-jobs-feed-url', url);
+    syncFromFeed(url, false);
+  });
+  (async function loadFeedUrlAndAutoSync(){
+    try{
+      const res = await window.storage.get('punjab-jobs-feed-url');
+      if(res && res.value){
+        document.getElementById('feedUrl').value = res.value;
+        syncFromFeed(res.value, true);
+        setInterval(()=>syncFromFeed(res.value, true), 5*60*1000);
+      }
+    }catch(e){}
+  })();
+} else {
+  (async function silentSync(){
+    try{
+      const res = await window.storage.get('punjab-jobs-feed-url');
+      if(res && res.value){
+        const r = await fetch(res.value);
+        const feedJobs = await r.json();
+        if(Array.isArray(feedJobs) && feedJobs.length){ jobs = feedJobs; await saveJobs(); renderAll(); }
+      }
+    }catch(e){}
+  })();
+}
+
+renderAll();
+loadSavedJobs();
+</script>
+</body>
+</html>
