@@ -688,7 +688,7 @@ document.getElementById('authSubmitBtn').addEventListener('click', async ()=>{
   }
 
   try{
-    statusEl.textContent = 'Link bheja ja raha hai...';
+    statusEl.textContent = 'Sending Link...';
     const actionCodeSettings = {
       url: window.location.href.split('?')[0],
       handleCodeInApp: true
@@ -696,7 +696,7 @@ document.getElementById('authSubmitBtn').addEventListener('click', async ()=>{
     await auth.sendSignInLinkToEmail(email, actionCodeSettings);
     localStorage.setItem('pendingEmail', email);
     localStorage.setItem('pendingName', name);
-    statusEl.textContent = '✅ Verification link ' + email + ' par bhej diya gaya hai. Apni email kholke link par click karo — account turant ban jayega.';
+    statusEl.textContent = '✅ A verification link has been sent to '+ email +'. Please open your email and click the link to verify your account. Your account will be created instantly..';
   }catch(err){
     statusEl.textContent = '❌ ' + (err.message || 'Link bhejne mein error aaya');
     statusEl.classList.add('error');
