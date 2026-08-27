@@ -213,17 +213,17 @@ input[type=file]{display:none;}
       </div>
     </div>
 
-    <!-- Logged out: login/signup form -->
+    <!-- Logged out: name + email magic-link form -->
     <div id="authBox" class="section" style="display:none;">
       <div class="auth-card">
-        <div class="auth-title" id="authTitle">Login</div>
-        <div class="auth-sub">Email se login karke apni profile, resume aur portfolio banao</div>
+        <div class="auth-title" id="authTitle">Sign in / Sign up</div>
+        <div class="auth-sub">Naam aur email daalo — email par ek secure link aayega, usi se account ban jayega</div>
+        <div class="field-label">Naam</div>
+        <input class="field-input" id="authName" placeholder="Apna poora naam likho">
         <div class="field-label">Email</div>
         <input class="field-input" id="authEmail" type="email" placeholder="aapka@email.com">
-        <div class="field-label">Password</div>
-        <input class="field-input" id="authPassword" type="password" placeholder="kam se kam 6 characters">
         <div style="height:16px;"></div>
-        <button class="btn" id="authSubmitBtn">Login</button>
+        <button class="btn" id="authSubmitBtn">Email par link bhejo</button>
         <div class="status" id="authStatus"></div>
         <div style="display:flex;align-items:center;gap:10px;margin:16px 0;">
           <div style="flex:1;height:1px;background:var(--line);"></div>
@@ -231,9 +231,8 @@ input[type=file]{display:none;}
           <div style="flex:1;height:1px;background:var(--line);"></div>
         </div>
         <button class="btn outline" id="googleSignInBtn" style="display:flex;align-items:center;justify-content:center;gap:8px;">
-          <span style="font-size:16px;">G</span> Continue With Google
+          <span style="font-size:16px;">G</span> Google se Sign in karo
         </button>
-        <div class="auth-toggle" id="authToggle">Account nahi hai? <span>Sign up</span></div>
       </div>
     </div>
 
@@ -653,11 +652,8 @@ async function saveJobs(){ try{ await window.storage.set('punjab-jobs-list', JSO
 /* =========================================================
    PROFILE / AUTH (Firebase)
    ========================================================= */
-let authMode = 'login'; // or 'signup'
-const catSelect = document.getElementById('pCategory');
-CATEGORIES.forEach(c=>{
-  const opt = document.createElement('option'); opt.value=c; opt.textContent=c; catSelect.appendChild(opt);
-});
+let currentUser = null;
+let currentResumeUrl = '';
 
 function requireFirebaseOrWarn(){
   if(!firebaseReady){
@@ -668,47 +664,82 @@ function requireFirebaseOrWarn(){
   return true;
 }
 
-document.getElementById('authToggle').addEventListener('click', ()=>{
-  authMode = authMode==='login' ? 'signup' : 'login';
-  document.getElementById('authTitle').textContent = authMode==='login' ? 'Login' : 'Sign Up';
-  document.getElementById('authSubmitBtn').textContent = authMode==='login' ? 'Login' : 'Sign Up';
-  document.getElementById('authToggle').innerHTML = authMode==='login'
-    ? 'Account nahi hai? <span>Sign up karo</span>'
-    : 'Pehle se account hai? <span>Login karo</span>';
-});
-
 document.getElementById('authSubmitBtn').addEventListener('click', async ()=>{
   if(!requireFirebaseOrWarn()) return;
+  const name = document.getElementById('authName').value.trim();
   const email = document.getElementById('authEmail').value.trim();
-  const pass = document.getElementById('authPassword').value;
   const statusEl = document.getElementById('authStatus');
   statusEl.classList.remove('error');
-  if(!email || pass.length < 6){
-    statusEl.textContent = 'Sahi email aur 6+ character password daalo';
+
+  if(!name){
+    statusEl.textContent = 'Apna naam likho';
     statusEl.classList.add('error');
     return;
   }
-  if(authMode==='signup' && isDisposableEmail(email)){
-    statusEl.textContent = '❌ Temporary/disposable email se signup allowed nahi hai. Apni asli email use karo.';
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    statusEl.textContent = 'Sahi email daalo';
     statusEl.classList.add('error');
     return;
   }
+  if(isDisposableEmail(email)){
+    statusEl.textContent = '❌ Temporary/disposable email allowed nahi hai. Apni asli email use karo.';
+    statusEl.classList.add('error');
+    return;
+  }
+
   try{
-    statusEl.textContent = 'Ruko...';
-    if(authMode==='login'){
-      await auth.signInWithEmailAndPassword(email, pass);
-    }else{
-      const cred = await auth.createUserWithEmailAndPassword(email, pass);
-      await cred.user.sendEmailVerification();
-      statusEl.textContent = '✅ Account ban gaya! Apni email check karo aur verification link par click karo.';
-      statusEl.classList.remove('error');
-      return;
-    }
-    statusEl.textContent = '';
+    statusEl.textContent = 'Link bheja ja raha hai...';
+    const actionCodeSettings = {
+      url: window.location.href.split('?')[0],
+      handleCodeInApp: true
+    };
+    await auth.sendSignInLinkToEmail(email, actionCodeSettings);
+    localStorage.setItem('pendingEmail', email);
+    localStorage.setItem('pendingName', name);
+    statusEl.textContent = '✅ Verification link ' + email + ' par bhej diya gaya hai. Apni email kholke link par click karo — account turant ban jayega.';
   }catch(err){
-    statusEl.textContent = '❌ ' + (err.message || 'Kuch galat ho gaya');
+    statusEl.textContent = '❌ ' + (err.message || 'Link bhejne mein error aaya');
     statusEl.classList.add('error');
   }
+});
+
+// Handle the case where the person clicked the emailed sign-in link and landed back on this page
+async function handleEmailLinkSignIn(){
+  if(!firebaseReady) return;
+  if(auth.isSignInWithEmailLink(window.location.href)){
+    let email = localStorage.getItem('pendingEmail');
+    if(!email){
+      email = window.prompt('Confirm karne ke liye apni email daalo:');
+    }
+    const name = localStorage.getItem('pendingName') || '';
+    const statusEl = document.getElementById('authStatus');
+    try{
+      if(statusEl) statusEl.textContent = 'Verify ho raha hai...';
+      const result = await auth.signInWithEmailLink(email, window.location.href);
+      localStorage.removeItem('pendingEmail');
+      localStorage.removeItem('pendingName');
+      // Clean the verification params out of the URL
+      window.history.replaceState({}, document.title, window.location.pathname + (isAdmin ? '?admin=1' : ''));
+      // Save the name captured at signup time onto their profile (only fills if not already set)
+      if(name && db){
+        const ref = db.collection('profiles').doc(result.user.uid);
+        const doc = await ref.get();
+        if(!doc.exists || !doc.data().name){
+          await ref.set({ name, email: result.user.email }, { merge: true });
+        }
+      }
+    }catch(err){
+      if(statusEl){
+        statusEl.textContent = '❌ Verification link expire ho chuka hai ya invalid hai. Dobara try karo.';
+        statusEl.classList.add('error');
+      }
+    }
+  }
+}
+
+const catSelect = document.getElementById('pCategory');
+CATEGORIES.forEach(c=>{
+  const opt = document.createElement('option'); opt.value=c; opt.textContent=c; catSelect.appendChild(opt);
 });
 
 document.getElementById('logoutBtn').addEventListener('click', ()=> auth && auth.signOut());
@@ -727,9 +758,6 @@ document.getElementById('googleSignInBtn').addEventListener('click', async ()=>{
     statusEl.classList.add('error');
   }
 });
-
-let currentUser = null;
-let currentResumeUrl = '';
 
 async function loadProfile(uid){
   try{
@@ -807,6 +835,7 @@ if(firebaseReady){
       document.getElementById('profileBox').style.display='none';
     }
   });
+  handleEmailLinkSignIn();
 } else {
   document.getElementById('authBox').style.display='block';
 }
