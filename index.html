@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Punjab Jobs</title>
+<title>Local Jobs</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -152,12 +152,12 @@ input[type=file]{display:none;}
       <div class="header-top">
         <div class="brand">
           <div class="brand-mark">💼</div>
-          <div><div class="brand-title">Punjab Jobs</div><div class="brand-text">ਹਰ ਜ਼ਿਲ੍ਹੇ ਦੀਆਂ ਨੌਕਰੀਆਂ</div></div>
+          <div><div class="brand-title">Local Jobs</div><div class="brand-text">Jobs across every district</div></div>
         </div>
         <div class="bell">🔔</div>
       </div>
       <div class="loc-label">Location</div>
-      <div class="loc-value"><span class="pin">📍</span> Punjab, India</div>
+      <div class="loc-value"><span class="pin">📍</span> Punjab, Haryana & Rajasthan</div>
       <div class="search-row">
         <div class="search-box">🔍<input id="searchInput" placeholder="Job title, company dhoondo..."></div>
         <button class="filter-btn">⚙️</button>
@@ -330,7 +330,17 @@ const DISTRICTS = [
   "Amritsar","Barnala","Bathinda","Faridkot","Fatehgarh Sahib","Fazilka",
   "Ferozepur","Gurdaspur","Hoshiarpur","Jalandhar","Kapurthala","Ludhiana",
   "Malerkotla","Mansa","Moga","Sri Muktsar Sahib","Pathankot","Patiala",
-  "Rupnagar","SAS Nagar (Mohali)","Sangrur","SBS Nagar (Nawanshahr)","Tarn Taran"
+  "Rupnagar","SAS Nagar (Mohali)","Sangrur","SBS Nagar (Nawanshahr)","Tarn Taran",
+  "Ambala","Bhiwani","Charkhi Dadri","Faridabad","Fatehabad","Gurugram","Hisar",
+  "Jhajjar","Jind","Kaithal","Karnal","Kurukshetra","Mahendragarh","Nuh","Palwal",
+  "Panchkula","Panipat","Rewari","Rohtak","Sirsa","Sonipat","Yamunanagar",
+  "Ajmer","Alwar","Balotra","Banswara","Baran","Barmer","Beawar","Bharatpur",
+  "Bhilwara","Bikaner","Bundi","Chittorgarh","Churu","Dausa","Deeg",
+  "Didwana-Kuchaman","Dholpur","Dungarpur","Sri Ganganagar","Hanumangarh",
+  "Jaipur","Jaisalmer","Jalore","Jhalawar","Jhunjhunu","Jodhpur","Karauli",
+  "Khairthal-Tijara","Kota","Kotputli-Behror","Nagaur","Pali","Phalodi",
+  "Pratapgarh","Rajsamand","Salumbar","Sawai Madhopur","Sikar","Sirohi",
+  "Tonk","Udaipur"
 ];
 const CATEGORIES = [
   "Video Editor","Graphic Designer","Web Developer","Security Guard","Driver",
@@ -889,9 +899,9 @@ if(isAdmin){
   }
 
   async function askClaudeToStructure(pdfText){
-    const systemPrompt = `You extract job listings from Punjab (India) government/private job notification text.
+    const systemPrompt = `You extract job listings from Punjab, Haryana, and Rajasthan (India) government/private job notification text.
 Return ONLY a JSON array (no markdown fences, no preamble) of job objects with this exact shape:
-[{"title":"","district":"one of: ${DISTRICTS.join(', ')}, or 'All Punjab' if not district-specific","category":"one of: ${CATEGORIES.join(', ')}, pick closest match","organization":"","last_date":"","vacancies":"","description":"one or two sentence summary"}]
+[{"title":"","district":"one of: ${DISTRICTS.join(', ')}, or 'All India' if not district-specific","category":"one of: ${CATEGORIES.join(', ')}, pick closest match","organization":"","last_date":"","vacancies":"","description":"one or two sentence summary"}]
 Only return the JSON array.`;
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
