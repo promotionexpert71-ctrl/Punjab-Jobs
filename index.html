@@ -157,7 +157,14 @@ input[type=file]{display:none;}
         <div class="bell">🔔</div>
       </div>
       <div class="loc-label">Location</div>
-      <div class="loc-value"><span class="pin">📍</span> Punjab, Haryana & Rajasthan</div>
+      <div style="display:flex;gap:10px;position:relative;z-index:1;">
+        <select id="stateSelect" class="loc-value" style="background:transparent;border:none;color:#fff;-webkit-appearance:none;appearance:none;cursor:pointer;padding:0;font-family:inherit;font-size:15px;">
+          <option value="All" style="color:#000;">🗺️ All States</option>
+        </select>
+        <select id="districtSelect" class="loc-value" style="background:transparent;border:none;color:#fff;-webkit-appearance:none;appearance:none;cursor:pointer;padding:0;font-family:inherit;font-size:15px;">
+          <option value="All" style="color:#000;">📍 All Districts</option>
+        </select>
+      </div>
       <div class="search-row">
         <div class="search-box">🔍<input id="searchInput" placeholder="Job title, company dhoondo..."></div>
         <button class="filter-btn">⚙️</button>
@@ -326,22 +333,33 @@ const auth = firebaseReady ? firebase.auth() : null;
 const db = firebaseReady ? firebase.firestore() : null;
 const storage = firebaseReady ? firebase.storage() : null;
 
-const DISTRICTS = [
-  "Amritsar","Barnala","Bathinda","Faridkot","Fatehgarh Sahib","Fazilka",
-  "Ferozepur","Gurdaspur","Hoshiarpur","Jalandhar","Kapurthala","Ludhiana",
-  "Malerkotla","Mansa","Moga","Sri Muktsar Sahib","Pathankot","Patiala",
-  "Rupnagar","SAS Nagar (Mohali)","Sangrur","SBS Nagar (Nawanshahr)","Tarn Taran",
-  "Ambala","Bhiwani","Charkhi Dadri","Faridabad","Fatehabad","Gurugram","Hisar",
-  "Jhajjar","Jind","Kaithal","Karnal","Kurukshetra","Mahendragarh","Nuh","Palwal",
-  "Panchkula","Panipat","Rewari","Rohtak","Sirsa","Sonipat","Yamunanagar",
-  "Ajmer","Alwar","Balotra","Banswara","Baran","Barmer","Beawar","Bharatpur",
-  "Bhilwara","Bikaner","Bundi","Chittorgarh","Churu","Dausa","Deeg",
-  "Didwana-Kuchaman","Dholpur","Dungarpur","Sri Ganganagar","Hanumangarh",
-  "Jaipur","Jaisalmer","Jalore","Jhalawar","Jhunjhunu","Jodhpur","Karauli",
-  "Khairthal-Tijara","Kota","Kotputli-Behror","Nagaur","Pali","Phalodi",
-  "Pratapgarh","Rajsamand","Salumbar","Sawai Madhopur","Sikar","Sirohi",
-  "Tonk","Udaipur"
-];
+const STATE_DISTRICTS = {
+  "Punjab": [
+    "Amritsar","Barnala","Bathinda","Faridkot","Fatehgarh Sahib","Fazilka",
+    "Ferozepur","Gurdaspur","Hoshiarpur","Jalandhar","Kapurthala","Ludhiana",
+    "Malerkotla","Mansa","Moga","Sri Muktsar Sahib","Pathankot","Patiala",
+    "Rupnagar","SAS Nagar (Mohali)","Sangrur","SBS Nagar (Nawanshahr)","Tarn Taran"
+  ],
+  "Haryana": [
+    "Ambala","Bhiwani","Charkhi Dadri","Faridabad","Fatehabad","Gurugram","Hisar",
+    "Jhajjar","Jind","Kaithal","Karnal","Kurukshetra","Mahendragarh","Nuh","Palwal",
+    "Panchkula","Panipat","Rewari","Rohtak","Sirsa","Sonipat","Yamunanagar"
+  ],
+  "Rajasthan": [
+    "Ajmer","Alwar","Balotra","Banswara","Baran","Barmer","Beawar","Bharatpur",
+    "Bhilwara","Bikaner","Bundi","Chittorgarh","Churu","Dausa","Deeg",
+    "Didwana-Kuchaman","Dholpur","Dungarpur","Sri Ganganagar","Hanumangarh",
+    "Jaipur","Jaisalmer","Jalore","Jhalawar","Jhunjhunu","Jodhpur","Karauli",
+    "Khairthal-Tijara","Kota","Kotputli-Behror","Nagaur","Pali","Phalodi",
+    "Pratapgarh","Rajsamand","Salumbar","Sawai Madhopur","Sikar","Sirohi",
+    "Tonk","Udaipur"
+  ]
+};
+const DISTRICT_TO_STATE = {};
+Object.keys(STATE_DISTRICTS).forEach(state=>{
+  STATE_DISTRICTS[state].forEach(d=> DISTRICT_TO_STATE[d] = state);
+});
+const DISTRICTS = [...STATE_DISTRICTS.Punjab, ...STATE_DISTRICTS.Haryana, ...STATE_DISTRICTS.Rajasthan];
 const CATEGORIES = [
   "Video Editor","Graphic Designer","Web Developer","Security Guard","Driver",
   "Delivery Boy","Data Entry Operator","Teacher","Sales Executive","Cook / Chef",
@@ -414,8 +432,50 @@ function isDisposableEmail(email){
   return DISPOSABLE_EMAIL_DOMAINS.has(domain);
 }
 
+// Populate the State dropdown, and wire State -> District cascading behavior
+const stateSelect = document.getElementById('stateSelect');
+const districtSelect = document.getElementById('districtSelect');
+
+Object.keys(STATE_DISTRICTS).forEach(state=>{
+  const opt = document.createElement('option');
+  opt.value = state;
+  opt.textContent = state;
+  opt.style.color = '#000';
+  stateSelect.appendChild(opt);
+});
+
+function populateDistrictOptions(state){
+  districtSelect.innerHTML = '';
+  const allOpt = document.createElement('option');
+  allOpt.value = 'All';
+  allOpt.textContent = '📍 All Districts';
+  allOpt.style.color = '#000';
+  districtSelect.appendChild(allOpt);
+  const list = state === 'All' ? DISTRICTS : STATE_DISTRICTS[state];
+  list.forEach(d=>{
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = d;
+    opt.style.color = '#000';
+    districtSelect.appendChild(opt);
+  });
+}
+populateDistrictOptions('All');
+
+stateSelect.addEventListener('change', ()=>{
+  activeState = stateSelect.value;
+  activeDistrict = 'All';
+  populateDistrictOptions(activeState);
+  renderAll();
+});
+districtSelect.addEventListener('change', ()=>{
+  activeDistrict = districtSelect.value;
+  renderAll();
+});
+
 let jobs = [];
 let activeDistrict = "All";
+let activeState = "All";
 let activeCategory = "All";
 let searchQuery = "";
 let districtsExpanded = false;
@@ -545,7 +605,13 @@ function countFor(d){
   return jobs.filter(j=>(j.district||'').toLowerCase().includes(d.toLowerCase())).length;
 }
 function filteredJobs(){
-  let list = activeDistrict==='All' ? jobs : jobs.filter(j=>(j.district||'').toLowerCase().includes(activeDistrict.toLowerCase()));
+  let list = jobs;
+  if(activeState!=='All'){
+    list = list.filter(j => DISTRICT_TO_STATE[j.district] === activeState);
+  }
+  if(activeDistrict!=='All'){
+    list = list.filter(j=>(j.district||'').toLowerCase().includes(activeDistrict.toLowerCase()));
+  }
   if(activeCategory!=='All') list = list.filter(j=>(j.category||'')===activeCategory);
   if(searchQuery.trim()){
     const q = searchQuery.toLowerCase();
@@ -636,7 +702,15 @@ function renderJobList(){
   });
 }
 
-function renderAll(){ renderDistrictScroll(); renderPillRow(); renderCatRow(); renderJobList(); }
+function renderAll(){
+  const derivedState = activeDistrict==='All' ? activeState : (DISTRICT_TO_STATE[activeDistrict] || 'All');
+  if(stateSelect.value !== derivedState){
+    stateSelect.value = derivedState;
+    populateDistrictOptions(derivedState);
+  }
+  districtSelect.value = activeDistrict;
+  renderDistrictScroll(); renderPillRow(); renderCatRow(); renderJobList();
+}
 
 function openDetail(job){
   document.getElementById('homeScreen').style.display='none';
