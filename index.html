@@ -203,9 +203,14 @@ input[type=file]{display:none;}
       <div class="stat-grid">
         <div class="stat-box"><div class="lbl">Last Date</div><div class="val" id="dDate">—</div></div>
         <div class="stat-box"><div class="lbl">Vacancies</div><div class="val" id="dVac">—</div></div>
+        <div class="stat-box" id="dPhoneBox" style="display:none;grid-column:1/-1;"><div class="lbl">Contact</div><div class="val" id="dPhone">—</div></div>
       </div>
       <div class="detail-section-title">Job Description</div>
       <div class="detail-desc" id="dDesc"></div>
+      <div id="dAddressWrap" style="display:none;">
+        <div class="detail-section-title">Address</div>
+        <div class="detail-desc" id="dAddress"></div>
+      </div>
     </div>
     <div style="padding:20px;"></div>
   </div>
@@ -271,6 +276,54 @@ input[type=file]{display:none;}
     </div>
   </div>
 
+  <!-- POST A JOB SCREEN -->
+  <div id="postScreen" style="display:none;">
+    <div class="header">
+      <div class="header-top">
+        <div class="brand-title">Post a Job</div>
+        <div class="bell" id="postBackBtn">✕</div>
+      </div>
+    </div>
+
+    <!-- Shown if not logged in -->
+    <div id="postLoginPrompt" class="section" style="display:none;">
+      <div class="auth-card">
+        <div class="auth-title">Sign In to Post</div>
+        <div class="auth-sub">You need to sign in first so employers can be contacted about their listing. Go to the Profile tab to sign in, then come back here.</div>
+        <button class="btn" id="postGoToProfileBtn">Go to Profile</button>
+      </div>
+    </div>
+
+    <!-- Shown if logged in -->
+    <div id="postFormBox" class="section" style="display:none;">
+      <div class="auth-card">
+        <div class="field-label">Store / Shop Name</div>
+        <input class="field-input" id="postOrg" placeholder="e.g. Sharma General Store">
+        <div class="field-label">Mobile Number</div>
+        <input class="field-input" id="postPhone" placeholder="10-digit mobile number" type="tel">
+        <div class="field-label">Second Mobile Number (optional)</div>
+        <input class="field-input" id="postPhone2" placeholder="Alternate contact number" type="tel">
+        <div class="field-label">Job Title</div>
+        <input class="field-input" id="postTitle" placeholder="e.g. Shop Helper Needed">
+        <div class="field-label">Category</div>
+        <select class="field-input" id="postCategory"></select>
+        <div class="field-label">State</div>
+        <select class="field-input" id="postState"></select>
+        <div class="field-label">District</div>
+        <select class="field-input" id="postDistrict"></select>
+        <div class="field-label">Address Details</div>
+        <textarea class="field-textarea" id="postAddress" placeholder="Shop address / landmark / area"></textarea>
+        <div class="field-label">Vacancies (optional)</div>
+        <input class="field-input" id="postVacancies" placeholder="e.g. 2">
+        <div class="field-label">Job Details</div>
+        <textarea class="field-textarea" id="postDesc" placeholder="Describe the job, timings, salary, etc."></textarea>
+        <div style="height:16px;"></div>
+        <button class="btn" id="postSubmitBtn">Post Job</button>
+        <div class="status" id="postStatus"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ADMIN SCREEN -->
   <div id="adminScreen" style="display:none;">
     <div class="header">
@@ -290,6 +343,7 @@ input[type=file]{display:none;}
   <div class="bottom-nav" id="bottomNav">
     <div class="nav-item active" id="navHome"><span class="ic">🏠</span>Home</div>
     <div class="nav-item" id="navSearch"><span class="ic">🔍</span>Search</div>
+    <div class="nav-item" id="navPost"><span class="ic">➕</span>Post</div>
     <div class="nav-item" id="navProfile"><span class="ic">👤</span>Profile</div>
     <div class="nav-item" id="navAdmin" style="display:none;"><span class="ic">⚙️</span>Admin</div>
   </div>
@@ -491,7 +545,8 @@ async function fetchJobsFromSupabase(){
     return rows.map(r => ({
       id: r.id, title: r.title, district: r.district, category: r.category,
       organization: r.organization, last_date: r.last_date, vacancies: r.vacancies,
-      description: r.description
+      description: r.description, contact_phone: r.contact_phone, contact_phone_2: r.contact_phone_2,
+      address: r.address, source: r.source
     }));
   }catch(e){
     console.error('Could not load jobs from Supabase', e);
@@ -591,10 +646,11 @@ function renderJobList(){
         </div>
         <div class="bookmark">🔖</div>
       </div>
-      <div class="job-loc"><span class="pin">📍</span>${escapeHtml(j.district||'Punjab')}</div>
+      <div class="job-loc"><span class="pin">📍</span>${escapeHtml(j.district||'Punjab')}${j.source==='user_posted' ? ' &nbsp;•&nbsp; <span style="color:var(--leaf);font-weight:600;">Community Post</span>' : ''}</div>
       <div class="tag-row">
         ${j.category ? `<span class="tag cat">${escapeHtml(j.category)}</span>` : ''}
         ${j.vacancies ? `<span class="tag">${escapeHtml(String(j.vacancies))} posts</span>` : ''}
+        ${j.contact_phone ? `<span class="tag">📞 ${escapeHtml(j.contact_phone)}</span>` : ''}
       </div>
       <div class="job-foot">
         <span class="stat">${j.last_date ? (isClosed ? '🔴 '+escapeHtml(j.last_date) : 'Last date: '+escapeHtml(j.last_date)) : 'Open'}</span>
@@ -625,6 +681,22 @@ function openDetail(job){
   document.getElementById('dLoc').textContent = job.district||'Punjab';
   document.getElementById('dDate').textContent = job.last_date || '—';
   document.getElementById('dVac').textContent = job.vacancies ? String(job.vacancies) : '—';
+  const phoneBox = document.getElementById('dPhoneBox');
+  if(job.contact_phone){
+    phoneBox.style.display = 'block';
+    let phoneText = '📞 ' + job.contact_phone;
+    if(job.contact_phone_2) phoneText += '  /  ' + job.contact_phone_2;
+    document.getElementById('dPhone').textContent = phoneText;
+  } else {
+    phoneBox.style.display = 'none';
+  }
+  const addressWrap = document.getElementById('dAddressWrap');
+  if(job.address){
+    addressWrap.style.display = 'block';
+    document.getElementById('dAddress').textContent = job.address;
+  } else {
+    addressWrap.style.display = 'none';
+  }
   document.getElementById('dDesc').textContent = job.description || 'No description available.';
 }
 document.getElementById('backBtn').addEventListener('click', ()=>{
@@ -639,7 +711,7 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{ searchQu
 
 /* bottom nav */
 function showScreen(id){
-  ['homeScreen','detailScreen','profileScreen','adminScreen'].forEach(s=>{
+  ['homeScreen','detailScreen','profileScreen','postScreen','adminScreen'].forEach(s=>{
     document.getElementById(s).style.display = (s===id) ? 'block' : 'none';
   });
 }
@@ -650,6 +722,9 @@ function setActiveNav(id){
 document.getElementById('navHome').addEventListener('click', ()=>{ showScreen('homeScreen'); setActiveNav('navHome'); });
 document.getElementById('navSearch').addEventListener('click', ()=>{ showScreen('homeScreen'); setActiveNav('navSearch'); document.getElementById('searchInput').focus(); });
 document.getElementById('navProfile').addEventListener('click', ()=>{ showScreen('profileScreen'); setActiveNav('navProfile'); });
+document.getElementById('navPost').addEventListener('click', ()=>{ showScreen('postScreen'); setActiveNav('navPost'); refreshPostScreen(); });
+document.getElementById('postBackBtn').addEventListener('click', ()=> document.getElementById('navHome').click());
+document.getElementById('postGoToProfileBtn').addEventListener('click', ()=> document.getElementById('navProfile').click());
 document.getElementById('profileBackBtn').addEventListener('click', ()=> document.getElementById('navHome').click());
 
 async function loadSavedJobs(){
@@ -861,6 +936,109 @@ if(firebaseReady){
 } else {
   document.getElementById('authBox').style.display='block';
 }
+
+/* =========================================================
+   POST A JOB
+   ========================================================= */
+const postCategorySelect = document.getElementById('postCategory');
+CATEGORIES.forEach(c=>{
+  const opt = document.createElement('option'); opt.value=c; opt.textContent=c; postCategorySelect.appendChild(opt);
+});
+
+const postStateSelect = document.getElementById('postState');
+Object.keys(STATE_DISTRICTS).forEach(state=>{
+  const opt = document.createElement('option'); opt.value=state; opt.textContent=state; postStateSelect.appendChild(opt);
+});
+function populatePostDistricts(state){
+  const postDistrictSelect = document.getElementById('postDistrict');
+  postDistrictSelect.innerHTML = '';
+  (STATE_DISTRICTS[state] || STATE_DISTRICTS.Punjab).forEach(d=>{
+    const opt = document.createElement('option'); opt.value=d; opt.textContent=d; postDistrictSelect.appendChild(opt);
+  });
+}
+populatePostDistricts(postStateSelect.value || 'Punjab');
+postStateSelect.addEventListener('change', ()=> populatePostDistricts(postStateSelect.value));
+
+function refreshPostScreen(){
+  if(currentUser){
+    document.getElementById('postLoginPrompt').style.display = 'none';
+    document.getElementById('postFormBox').style.display = 'block';
+  } else {
+    document.getElementById('postLoginPrompt').style.display = 'block';
+    document.getElementById('postFormBox').style.display = 'none';
+  }
+}
+
+document.getElementById('postSubmitBtn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('postStatus');
+  statusEl.classList.remove('error');
+  if(!currentUser){
+    statusEl.textContent = 'Please sign in first.';
+    statusEl.classList.add('error');
+    return;
+  }
+  const title = document.getElementById('postTitle').value.trim();
+  const org = document.getElementById('postOrg').value.trim();
+  const phone = document.getElementById('postPhone').value.trim();
+  const phone2 = document.getElementById('postPhone2').value.trim();
+  const address = document.getElementById('postAddress').value.trim();
+  const district = document.getElementById('postDistrict').value;
+  const category = document.getElementById('postCategory').value;
+  const vacancies = document.getElementById('postVacancies').value.trim();
+  const desc = document.getElementById('postDesc').value.trim();
+
+  if(!title || !org || !phone || !desc){
+    statusEl.textContent = 'Please fill in the job title, store name, mobile number, and job details.';
+    statusEl.classList.add('error');
+    return;
+  }
+  if(!/^[0-9+\-\s]{8,15}$/.test(phone)){
+    statusEl.textContent = 'Please enter a valid mobile number.';
+    statusEl.classList.add('error');
+    return;
+  }
+  if(phone2 && !/^[0-9+\-\s]{8,15}$/.test(phone2)){
+    statusEl.textContent = 'Please enter a valid second mobile number, or leave it blank.';
+    statusEl.classList.add('error');
+    return;
+  }
+
+  try{
+    statusEl.textContent = 'Posting...';
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/jobs`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        title, district, category, organization: org,
+        contact_phone: phone, contact_phone_2: phone2 || null, address,
+        vacancies, description: desc,
+        last_date: '', source: 'user_posted',
+        posted_by_name: currentUser.displayName || '',
+        posted_by_email: currentUser.email || ''
+      })
+    });
+    if(!res.ok) throw new Error('Failed to post job (status ' + res.status + ')');
+    statusEl.textContent = '✅ Your job has been posted and is now live in the app.';
+    document.getElementById('postTitle').value = '';
+    document.getElementById('postOrg').value = '';
+    document.getElementById('postPhone').value = '';
+    document.getElementById('postPhone2').value = '';
+    document.getElementById('postAddress').value = '';
+    document.getElementById('postVacancies').value = '';
+    document.getElementById('postDesc').value = '';
+    const freshJobs = await fetchJobsFromSupabase();
+    if(freshJobs.length){ jobs = freshJobs; try{ await window.storage.set('local-jobs-cache', JSON.stringify(jobs)); }catch(e){} }
+  }catch(err){
+    statusEl.textContent = '❌ ' + (err.message || 'Could not post the job. Please try again.');
+    statusEl.classList.add('error');
+  }
+});
+
 
 /* ---------------- Admin-only logic ---------------- */
 if(isAdmin){
