@@ -97,6 +97,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Bl
 .job-foot .stat{font-size:11.5px;color:var(--muted);}
 .job-foot .highlight{color:var(--indigo);font-weight:700;font-size:13px;}
 .empty{text-align:center;color:var(--muted);padding:50px 10px;font-size:13.5px;}
+.disclaimer-banner{background:#FFF6DE;border:1px solid #FFE9AE;border-radius:12px;padding:12px 14px;font-size:11.5px;color:#8A6A00;line-height:1.5;margin:14px 20px 0;}
 
 .detail-card{background:var(--card);border-radius:var(--radius-lg);margin:-16px 16px 0;padding:22px 18px;position:relative;z-index:2;box-shadow:0 10px 30px rgba(42,35,128,.08);}
 .detail-title{font-size:19px;font-weight:800;text-align:center;margin:0 0 4px;}
@@ -170,6 +171,8 @@ input[type=file]{display:none;}
       </div>
     </div>
 
+    <div class="disclaimer-banner">⚠️ <strong>Safety Notice:</strong> Never pay any money to anyone for a job offer, interview, or registration. If you make a payment to anyone contacted through this app, you do so entirely at your own risk and are solely responsible for that decision.</div>
+
     <div class="section">
       <div class="section-head">
         <div class="section-title">Districts</div>
@@ -210,6 +213,15 @@ input[type=file]{display:none;}
       <div id="dAddressWrap" style="display:none;">
         <div class="detail-section-title">Address</div>
         <div class="detail-desc" id="dAddress"></div>
+      </div>
+      <div id="dOwnerActions" style="display:none;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);">
+        <div class="admin-label">This is your posting</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn outline" id="dEditBtn" style="width:auto;flex:1;">Edit</button>
+          <button class="btn outline" id="dCloseToggleBtn" style="width:auto;flex:1;">Mark Closed</button>
+          <button class="btn danger" id="dDeleteBtn" style="width:auto;flex:1;">Delete</button>
+        </div>
+        <div class="status" id="dOwnerStatus"></div>
       </div>
     </div>
     <div style="padding:20px;"></div>
@@ -296,6 +308,7 @@ input[type=file]{display:none;}
 
     <!-- Shown if logged in -->
     <div id="postFormBox" class="section" style="display:none;">
+      <div class="disclaimer-banner" style="margin:0 0 14px;">⚠️ Do not request or accept money from job seekers. Listings used to solicit payment will be removed.</div>
       <div class="auth-card">
         <div class="field-label">Store / Shop Name</div>
         <input class="field-input" id="postOrg" placeholder="e.g. Sharma General Store">
@@ -546,7 +559,7 @@ async function fetchJobsFromSupabase(){
       id: r.id, title: r.title, district: r.district, category: r.category,
       organization: r.organization, last_date: r.last_date, vacancies: r.vacancies,
       description: r.description, contact_phone: r.contact_phone, contact_phone_2: r.contact_phone_2,
-      address: r.address, source: r.source
+      address: r.address, source: r.source, is_closed: r.is_closed, posted_by_email: r.posted_by_email
     }));
   }catch(e){
     console.error('Could not load jobs from Supabase', e);
@@ -635,7 +648,7 @@ function renderJobList(){
   }
   list.innerHTML = data.map((j)=>{
     const c = colorFor(j.organization||j.title||'X');
-    const isClosed = /closed/i.test(j.last_date||'');
+    const isClosed = j.is_closed === true || /closed/i.test(j.last_date||'');
     return `
     <div class="job-card${isClosed ? ' closed' : ''}" data-idx="${jobs.indexOf(j)}">
       <div class="job-top">
@@ -653,7 +666,7 @@ function renderJobList(){
         ${j.contact_phone ? `<span class="tag">📞 ${escapeHtml(j.contact_phone)}</span>` : ''}
       </div>
       <div class="job-foot">
-        <span class="stat">${j.last_date ? (isClosed ? '🔴 '+escapeHtml(j.last_date) : 'Last date: '+escapeHtml(j.last_date)) : 'Open'}</span>
+        <span class="stat">${isClosed ? '🔴 ' + (j.last_date || 'Closed') : (j.last_date ? 'Last date: '+escapeHtml(j.last_date) : 'Open')}</span>
         <span class="highlight">View →</span>
       </div>
     </div>`;
@@ -698,7 +711,88 @@ function openDetail(job){
     addressWrap.style.display = 'none';
   }
   document.getElementById('dDesc').textContent = job.description || 'No description available.';
+
+  currentOpenJob = job;
+  const ownerActions = document.getElementById('dOwnerActions');
+  const isOwner = currentUser && job.posted_by_email && currentUser.email === job.posted_by_email;
+  if(isOwner){
+    ownerActions.style.display = 'block';
+    document.getElementById('dCloseToggleBtn').textContent = job.is_closed ? 'Reopen' : 'Mark Closed';
+    document.getElementById('dOwnerStatus').textContent = '';
+  } else {
+    ownerActions.style.display = 'none';
+  }
 }
+let currentOpenJob = null;
+
+document.getElementById('dEditBtn').addEventListener('click', ()=>{
+  if(!currentOpenJob) return;
+  document.getElementById('detailScreen').style.display='none';
+  document.getElementById('postScreen').style.display='block';
+  editingJobId = currentOpenJob.id;
+  refreshPostScreen();
+  document.getElementById('postOrg').value = currentOpenJob.organization || '';
+  document.getElementById('postPhone').value = currentOpenJob.contact_phone || '';
+  document.getElementById('postPhone2').value = currentOpenJob.contact_phone_2 || '';
+  document.getElementById('postTitle').value = currentOpenJob.title || '';
+  document.getElementById('postCategory').value = currentOpenJob.category || CATEGORIES[0];
+  const jobState = DISTRICT_TO_STATE[currentOpenJob.district] || 'Punjab';
+  document.getElementById('postState').value = jobState;
+  populatePostDistricts(jobState);
+  document.getElementById('postDistrict').value = currentOpenJob.district || '';
+  document.getElementById('postAddress').value = currentOpenJob.address || '';
+  document.getElementById('postVacancies').value = currentOpenJob.vacancies || '';
+  document.getElementById('postDesc').value = currentOpenJob.description || '';
+  document.getElementById('postSubmitBtn').textContent = 'Save Changes';
+});
+
+document.getElementById('dCloseToggleBtn').addEventListener('click', async ()=>{
+  if(!currentOpenJob) return;
+  const statusEl = document.getElementById('dOwnerStatus');
+  const newState = !currentOpenJob.is_closed;
+  statusEl.textContent = 'Updating...';
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${currentOpenJob.id}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ is_closed: newState })
+    });
+    if(!res.ok) throw new Error('Update failed');
+    currentOpenJob.is_closed = newState;
+    document.getElementById('dCloseToggleBtn').textContent = newState ? 'Reopen' : 'Mark Closed';
+    statusEl.textContent = newState ? '✅ Job marked as closed' : '✅ Job reopened';
+    const freshJobs = await fetchJobsFromSupabase();
+    if(freshJobs.length){ jobs = freshJobs; try{ await window.storage.set('local-jobs-cache', JSON.stringify(jobs)); }catch(e){} }
+  }catch(err){
+    statusEl.textContent = '❌ Could not update the job';
+    statusEl.classList.add('error');
+  }
+});
+
+document.getElementById('dDeleteBtn').addEventListener('click', async ()=>{
+  if(!currentOpenJob) return;
+  if(!window.confirm('Delete this job posting permanently? This cannot be undone.')) return;
+  const statusEl = document.getElementById('dOwnerStatus');
+  statusEl.textContent = 'Deleting...';
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${currentOpenJob.id}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    if(!res.ok) throw new Error('Delete failed');
+    const freshJobs = await fetchJobsFromSupabase();
+    jobs = freshJobs;
+    try{ await window.storage.set('local-jobs-cache', JSON.stringify(jobs)); }catch(e){}
+    document.getElementById('backBtn').click();
+    renderAll();
+  }catch(err){
+    statusEl.textContent = '❌ Could not delete the job';
+    statusEl.classList.add('error');
+  }
+});
 document.getElementById('backBtn').addEventListener('click', ()=>{
   document.getElementById('detailScreen').style.display='none';
   document.getElementById('homeScreen').style.display='block';
@@ -722,7 +816,18 @@ function setActiveNav(id){
 document.getElementById('navHome').addEventListener('click', ()=>{ showScreen('homeScreen'); setActiveNav('navHome'); });
 document.getElementById('navSearch').addEventListener('click', ()=>{ showScreen('homeScreen'); setActiveNav('navSearch'); document.getElementById('searchInput').focus(); });
 document.getElementById('navProfile').addEventListener('click', ()=>{ showScreen('profileScreen'); setActiveNav('navProfile'); });
-document.getElementById('navPost').addEventListener('click', ()=>{ showScreen('postScreen'); setActiveNav('navPost'); refreshPostScreen(); });
+document.getElementById('navPost').addEventListener('click', ()=>{
+  editingJobId = null;
+  document.getElementById('postSubmitBtn').textContent = 'Post Job';
+  document.getElementById('postTitle').value = '';
+  document.getElementById('postOrg').value = '';
+  document.getElementById('postPhone').value = '';
+  document.getElementById('postPhone2').value = '';
+  document.getElementById('postAddress').value = '';
+  document.getElementById('postVacancies').value = '';
+  document.getElementById('postDesc').value = '';
+  showScreen('postScreen'); setActiveNav('navPost'); refreshPostScreen();
+});
 document.getElementById('postBackBtn').addEventListener('click', ()=> document.getElementById('navHome').click());
 document.getElementById('postGoToProfileBtn').addEventListener('click', ()=> document.getElementById('navProfile').click());
 document.getElementById('profileBackBtn').addEventListener('click', ()=> document.getElementById('navHome').click());
@@ -750,6 +855,7 @@ async function saveJobs(){ try{ await window.storage.set('local-jobs-cache', JSO
    PROFILE / AUTH (Firebase)
    ========================================================= */
 let currentUser = null;
+let editingJobId = null;
 let currentResumeUrl = '';
 
 function requireFirebaseOrWarn(){
@@ -1004,37 +1110,59 @@ document.getElementById('postSubmitBtn').addEventListener('click', async ()=>{
   }
 
   try{
-    statusEl.textContent = 'Posting...';
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/jobs`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({
-        title, district, category, organization: org,
-        contact_phone: phone, contact_phone_2: phone2 || null, address,
-        vacancies, description: desc,
-        last_date: '', source: 'user_posted',
-        posted_by_name: currentUser.displayName || '',
-        posted_by_email: currentUser.email || ''
-      })
-    });
-    if(!res.ok) throw new Error('Failed to post job (status ' + res.status + ')');
-    statusEl.textContent = '✅ Your job has been posted and is now live in the app.';
-    document.getElementById('postTitle').value = '';
-    document.getElementById('postOrg').value = '';
-    document.getElementById('postPhone').value = '';
-    document.getElementById('postPhone2').value = '';
-    document.getElementById('postAddress').value = '';
-    document.getElementById('postVacancies').value = '';
-    document.getElementById('postDesc').value = '';
+    statusEl.textContent = editingJobId ? 'Saving changes...' : 'Posting...';
+    const jobPayload = {
+      title, district, category, organization: org,
+      contact_phone: phone, contact_phone_2: phone2 || null, address,
+      vacancies, description: desc
+    };
+    let res;
+    if(editingJobId){
+      res = await fetch(`${SUPABASE_URL}/rest/v1/jobs?id=eq.${editingJobId}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(jobPayload)
+      });
+    } else {
+      jobPayload.last_date = '';
+      jobPayload.source = 'user_posted';
+      jobPayload.posted_by_name = currentUser.displayName || '';
+      jobPayload.posted_by_email = currentUser.email || '';
+      res = await fetch(`${SUPABASE_URL}/rest/v1/jobs`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(jobPayload)
+      });
+    }
+    if(!res.ok) throw new Error((editingJobId ? 'Failed to save changes' : 'Failed to post job') + ' (status ' + res.status + ')');
+    if(editingJobId){
+      statusEl.textContent = '✅ Changes saved.';
+      editingJobId = null;
+      document.getElementById('postSubmitBtn').textContent = 'Post Job';
+    } else {
+      statusEl.textContent = '✅ Your job has been posted and is now live in the app.';
+      document.getElementById('postTitle').value = '';
+      document.getElementById('postOrg').value = '';
+      document.getElementById('postPhone').value = '';
+      document.getElementById('postPhone2').value = '';
+      document.getElementById('postAddress').value = '';
+      document.getElementById('postVacancies').value = '';
+      document.getElementById('postDesc').value = '';
+    }
     const freshJobs = await fetchJobsFromSupabase();
     if(freshJobs.length){ jobs = freshJobs; try{ await window.storage.set('local-jobs-cache', JSON.stringify(jobs)); }catch(e){} }
   }catch(err){
-    statusEl.textContent = '❌ ' + (err.message || 'Could not post the job. Please try again.');
+    statusEl.textContent = '❌ ' + (err.message || 'Could not save the job. Please try again.');
     statusEl.classList.add('error');
   }
 });
